@@ -1,0 +1,24 @@
+{
+	"folders": [
+		{
+			"path": "../../../../Downloads/thatcher-effect-dataset-generator-master"
+		},
+		{
+			"name": "Chronos",
+			"path": "../Chronos"
+		},
+		{
+			"name": "Micro-Rato-2025-ESPadaptation",
+			"path": "../Micro-Rato-2025-ESPadaptation"
+		},
+		{
+			"name": "Micro-Rato-2025-master",
+			"path": "../Micro-Rato-2025-master"
+		},
+		{
+			"name": "Micro-Rato-2025-Vermelho",
+			"path": "."
+		}
+	],
+	"settings": {}
+}
