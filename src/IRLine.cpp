@@ -59,21 +59,33 @@
 extern robot_t robot;
 
 /**
- * @brief Inializando parameters
- * 
+ * @brief Construct a new IRLine_t object and initialize defaults.
+ *
+ * Initializes calibration and detection thresholds and clears working
+ * variables. These defaults are conservative starting values and may be
+ * adjusted later by a call to `calibrate()`.
+ *
+ * Defaults set in the implementation:
+ *  - `IR_WaterLevel = 0`
+ *  - `IR_tresh = 700` (threshold to classify black/white)
+ *  - `cross_tresh = 3` (threshold for crossing detection)
+ *  - `black_cross_level = 2.8` (calibration level marker)
  */
 IRLine_t::IRLine_t()
 {
-  IR_WaterLevel = 0; // I think represent a measure or estimate the infravermelho sensor reading
-  IR_tresh = 700; // IR threshold, i think is to detect
-  cross_tresh = 3; // Most likely a threshold for detecting a crossing or intersection (in a line-following robot context).
-  black_cross_level = 2.8; // Likely a calibration value (possibly in volts) that defines what sensor level corresponds to a "black" surface (like a line or marker
+  IR_WaterLevel = 0; // baseline offset (water level) subtracted from raw readings
+  IR_tresh = 700; // threshold used to decide black vs white on a 10-bit ADC (0..1023)
+  cross_tresh = 3; // crossing detection threshold (count of sensors/signals)
+  black_cross_level = 2.8; // calibration marker for a black surface (project-specific units)
 }
 
 /**
- * @brief Is to calibrate the IR sensor
- * 
- * Not impelemetet
+ * @brief Calibrate the IR sensors.
+ *
+ * Intended to sample sensors under known black/white surfaces and adjust
+ * internal thresholds (for example `IR_tresh` and `IR_max`).
+ *
+ * @note Currently this function is a stub (not implemented).
  */
 void IRLine_t::calibrate(void)
 {
@@ -81,7 +93,16 @@ void IRLine_t::calibrate(void)
 }
 
 /**
- * @brief This function is to find the left edge
+ * @brief Compute the left line edge using the left-to-right sensor scan.
+ *
+ * The algorithm scans the five IR sensors, subtracts `IR_WaterLevel` from
+ * each reading, clamps negatives to zero, and searches for the first
+ * threshold crossing where the previous sample is below `IR_tresh` and the
+ * current sample is above `IR_tresh`. When a crossing is found, an
+ * interpolated position is computed and stored in `pos_left`.
+ *
+ * Side effects:
+ *  - updates `pos_left`, `total` (sum of adjusted readings) and `IR_max`.
  */
 void IRLine_t::calcIRLineEdgeLeft(void)
 {
@@ -93,7 +114,7 @@ void IRLine_t::calcIRLineEdgeLeft(void)
   found = 0;
   IR_max = 0;
   pos_left = 2 * 16.0;
-  total = 0; // i think is to acumulate IR signal strengh // não utilizado
+  total = 0; // accumulate IR signal strength (not used)
   last_v = 0;
   for (c = 0; c < 5; c++) {
     v = IR_values[c] - IR_WaterLevel;
@@ -112,8 +133,13 @@ void IRLine_t::calcIRLineEdgeLeft(void)
 }
 
 /**
- * @brief This function is to find the rigth edge
- * 
+ * @brief Compute the right line edge by scanning sensors right-to-left.
+ *
+ * Same algorithm as `calcIRLineEdgeLeft()` but scanning from the outer
+ * right sensor towards the left. Results are stored in `pos_right`.
+ *
+ * Side effects:
+ *  - updates `pos_right`, `total` and `IR_max`.
  */
 void IRLine_t::calcIRLineEdgeRight(void)
 {
@@ -143,7 +169,13 @@ void IRLine_t::calcIRLineEdgeRight(void)
 
 
 /**
- * @brief This function sets the multiplexer input channel by writing the right binary combination to 3 control pins (A, B, C).
+ * @brief Set the external analog multiplexer input channel.
+ *
+ * Writes the appropriate binary values to the three MUX control pins (A,B,C)
+ * so the external multiplexer connects the desired channel to the ADC pin.
+ * Platform-specific GPIO calls are used under conditional compilation.
+ *
+ * @param channel MUX channel number (typically 0..7).
  */
 static void adc_set_channel(int channel) 
 {
@@ -159,7 +191,16 @@ static void adc_set_channel(int channel)
 }
 
 /**
- * @brief It reads an analog value from a multiplexed ADC input.
+ * @brief Read a single ADC sample from the specified MUX channel.
+ *
+ * The function sets the MUX channel, waits a short time for the signal to
+ * settle, and then reads the value from analog input A2 where the MUX is
+ * connected.
+ *
+ * @param channel MUX channel number to read.
+ * @return uint16_t ADC reading, range 0..1023 (10-bit ADC).
+ * @note A delayMicroseconds(100) is used to allow the multiplexer output to
+ *       settle before sampling.
  */
 uint16_t read_adc(int channel)
 {
@@ -169,7 +210,15 @@ uint16_t read_adc(int channel)
 }
 
 /**
- * @brief This function reads all of the robot’s infrared line sensors and stores their values in an array.
+ * @brief Read all IR sensors via the analog multiplexer and store values.
+ *
+ * The code reads MUX channels 3..7, inverts the ADC value (1023 - raw) and
+ * stores the results into the robot's IRLine array in reversed order. The
+ * inversion converts reflectance to a convention where higher values mean
+ * darker (more reflective to IR) and the ordering matches the rest of the
+ * codebase.
+ *
+ * Side effects: writes into `robot.IRLine.IR_values[]`.
  */
 void IRLine_t::readIRSensors(void)
 {
@@ -182,8 +231,21 @@ void IRLine_t::readIRSensors(void)
 }
 
 /**
- * @brief  This function compresses them to 6 bits each and stores all five inside one 32-bit number
- * You have 5 IR sensors, each giving a 10-bit reading (from analogRead(), range 0–1023).
+ * @brief Encode the five IR sensor readings into a compact 32-bit value.
+ *
+ * Each sensor reading is a 10-bit value (0..1023). This function reduces
+ * each reading to 6 bits by right-shifting 4 bits (lossy compression) and
+ * packs the five 6-bit values into a 32-bit integer (30 used bits).
+ *
+ * Bit layout (from most to least significant bits):
+ *  - bits [29:24] = IR_values[0] >> 4
+ *  - bits [23:18] = IR_values[1] >> 4
+ *  - bits [17:12] = IR_values[2] >> 4
+ *  - bits [11:6]  = IR_values[3] >> 4
+ *  - bits [5:0]   = IR_values[4] >> 4
+ *
+ * @return uint32_t packed sensor state (0..(1<<30)-1), useful for logging or
+ *         compact comparisons.
  */
 uint32_t IRLine_t::encodeIRSensors(void)
 {
@@ -202,7 +264,10 @@ uint32_t IRLine_t::encodeIRSensors(void)
 
 
 /**
- * @brief Print the values of each the IR Sensor
+ * @brief Print the current IR sensor values to Serial for debugging.
+ *
+ * @note Serial must be initialized by the caller (Serial.begin) before
+ *       calling this function.
  */
 void IRLine_t::printIRLine(void)
 {
@@ -221,17 +286,17 @@ void IRLine_t::printIRLine(void)
 
 /**
  * Node detection
- * @brief This function analyzes the five IR sensors and classifies what kind of "node" (road pattern) the robot is currently over:
- * last_node{
- * E -> Erro or unknown
- * L -> Left junction
- * R -> Rigth junction
- * B → Both sides black (cross or T-junction)
- * W → White (no line, maybe after a junction or U-turn)
- * N → Normal line
- * }
- * 
- * | Condition          | Pattern                        | Meaning                              | Returned char |
+ * @brief Analyze the five IR sensors and classify the current "node" (road pattern).
+ *
+ * last_node mapping:
+ *  - E -> Error or unknown
+ *  - L -> Left junction
+ *  - R -> Right junction
+ *  - B -> Both sides black (cross or T-junction)
+ *  - W -> White (no line, maybe after a junction or U-turn)
+ *  - N -> Normal line
+ *
+| Condition          | Pattern                        | Meaning                              | Returned char |
 | ------------------ | ------------------------------ | ------------------------------------ | ------------- |
 | `XXXOO`            | Left 3 dark, right 2 light     | Left node detected                   | `'L'`         |
 | `OOXXX`            | Right 3 dark, left 2 light     | Right node detected                  | `'R'`         |
@@ -240,6 +305,8 @@ void IRLine_t::printIRLine(void)
 | Single sensor dark | Regular line following pattern | `'N'`                                |               |
 | Anything else      | No clear match                 | `'E'`                                |               |
 
+ * @return char Node code as described above. Returns 'E' until a stable node
+ *              is observed for the required number of cycles.
  */
 char IRLine_t::detectNode( )
 {
@@ -260,7 +327,7 @@ char IRLine_t::detectNode( )
   {
     current_node = 'R';
   }
-  // T junction, Cross junc\tion or End -> XXXXX
+  // T junction, Cross junction or End -> XXXXX
   else if (IR_values[0] > IR_tresh && IR_values[1] > IR_tresh && IR_values[2] > IR_tresh && IR_values[3] > IR_tresh && IR_values[4] > IR_tresh)
   {
     current_node = 'B';

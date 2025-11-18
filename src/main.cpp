@@ -5,7 +5,7 @@
 #include "config.h"
 #include "path_handler.h"
 
-//#define DEBUG 1
+//#define DEBUG
 
 
 
@@ -70,16 +70,20 @@ void loop() {
 
 	  edge_detection();
 
-
+  /**
+   * State Machines Handlers
+   */
     // Main_FSM_Handler();
     // Map_FSM_Handler();
     // Solve_FSM_Handler();
     //Test_FSM_Handler();
     FodaseFMSHandler();
+  //** End of State Machines Handlers
 
+  #ifdef DEBUG
     // Serial.printf("PWM1: %d\n",robot.PWM_1);
     // Serial.printf("PWM2%d\n",robot.PWM_2);
-   
+  #endif
 } 
 
 

@@ -5,7 +5,7 @@
 /**
  * @file
  * @brief Handles the robot's path logic, determining navigation decisions such as always turning right or left.
- */
+*/
 
 //#define FOLLOW LEFT
 #define FOLLOW RIGHT
@@ -13,8 +13,14 @@
 
 using namespace std;
 
-// Function to get the path from the original stack
-// This function will process the stack and return a new stack with the optimized path
+
+/**
+ * @brief Optimizes the robot's movement path by reducing unnecessary turns.
+ * Function to get the path from the original stack
+ * This function will process the stack and return a new stack with the optimized path
+ * @param movements_made A stack of characters representing the robot's movements ('L', 'R', 'U', 'F').
+ * @return A stack of characters representing the optimized path.
+ */
 stack<char> get_path(stack <char> movements_made) 
 {
   stack<char> tempStack;
@@ -38,7 +44,9 @@ stack<char> get_path(stack <char> movements_made)
         string pattern = {first, second, third};
                 
         #ifdef FOLLOW LEFT 
-        // Check for left-hand patterns 
+        /**
+        * Check for right-hand patterns
+        */
         if (pattern == "LUL") {
           tempStack.push('F');
           changed = true;
@@ -59,10 +67,14 @@ stack<char> get_path(stack <char> movements_made)
           tempStack.push(second);
           tempStack.push(third);
         }
+        /** End for the left-hand patterns */
         #endif
 
         #ifdef FOLLOW RIGHT
-        // Check for right-hand patterns
+
+        /**
+         * Check for right-hand patterns
+         */
         if (pattern == "RUR") {
           tempStack.push('F');
           changed = true;
@@ -83,7 +95,9 @@ stack<char> get_path(stack <char> movements_made)
           tempStack.push(second);
           tempStack.push(third);
         }
+        /** End for the right-hand patterns */
         #endif
+
       }
     }
         
