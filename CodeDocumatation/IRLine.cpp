@@ -1,0 +1,306 @@
+/* Copyright (c) 2019  Paulo Costa
+   All rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are met:
+
+   * Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+   * Neither the name of the copyright holders nor the names of
+     contributors may be used to endorse or promote products derived
+     from this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE. */
+
+  
+#include "IRLine.h"
+#include "Arduino.h"
+#include <string.h>
+#include "config.h"
+#include "robot.h"
+
+#define DEBUG 
+#define Raspberry 
+// #define Arduino 
+
+/**
+ * @file IRLine.cpp
+ * @brief Implements infrared line sensor handling and line detection logic for the robot.
+ *
+ * This module manages all operations related to the infrared (IR) line sensors, including:
+ *  - Reading sensor values through an analog multiplexer
+ *  - Calculating left and right line edges
+ *  - Encoding sensor data into a compact format
+ *  - Detecting line patterns and junction nodes (left, right, T, cross, etc.)
+ *
+ * It supports both Arduino and Raspberry Pi Pico platforms through conditional compilation.
+ * The functions use threshold-based analysis to interpret the reflectance readings and identify
+ * navigation cues for line-following or maze-solving behaviors.
+ *
+ * @note Requires `robot.h`, `config.h`, and the appropriate hardware configuration for the MUX pins.
+ *
+*/
+
+
+extern robot_t robot;
+
+/**
+ * @brief Inializando parameters
+ * 
+ */
+IRLine_t::IRLine_t()
+{
+  IR_WaterLevel = 0; // I think represent a measure or estimate the infravermelho sensor reading
+  IR_tresh = 700; // IR threshold, i think is to detect
+  cross_tresh = 3; // Most likely a threshold for detecting a crossing or intersection (in a line-following robot context).
+  black_cross_level = 2.8; // Likely a calibration value (possibly in volts) that defines what sensor level corresponds to a "black" surface (like a line or marker
+}
+
+/**
+ * @brief Is to calibrate the IR sensor
+ * 
+ * Not impelemetet
+ */
+void IRLine_t::calibrate(void)
+{
+  
+}
+
+/**
+ * @brief This function is to find the left edge
+ */
+void IRLine_t::calcIRLineEdgeLeft(void)
+{
+  byte c; // number of IR sensor
+  byte found; // flag that tell detect the left edge
+  int v; // Current adjusted IR sensor reading.
+  int last_v;// Lasted adjusted IR sensor reading
+
+  found = 0;
+  IR_max = 0;
+  pos_left = 2 * 16.0;
+  total = 0; // i think is to acumulate IR signal strengh // não utilizado
+  last_v = 0;
+  for (c = 0; c < 5; c++) {
+    v = IR_values[c] - IR_WaterLevel;
+
+    if (v < 0) v = 0;
+    if (v > IR_max) IR_max = v;
+
+    total = total + v;
+
+    if (!found && last_v < IR_tresh && v > IR_tresh) {
+      pos_left = -12 + 16.0 * (c - 2) + 16.0 * (IR_tresh - last_v) / (v - last_v);
+      found = 1; // Found the edge
+    }
+    last_v = v;
+  }
+}
+
+/**
+ * @brief This function is to find the rigth edge
+ * 
+ */
+void IRLine_t::calcIRLineEdgeRight(void)
+{
+  // this is the same the leftedge
+  byte c, found;
+  int v, last_v;
+
+  found = 0;
+  IR_max = 0;
+  pos_right = -2 * 16.0;
+  total = 0;
+  last_v = 0;
+  for (c = 0; c < 5; c++) {
+    v = IR_values[4 - c] - IR_WaterLevel;
+    if (v < 0) v = 0;
+    if (v > IR_max) IR_max = v;
+    total = total + v;
+
+    if (!found && last_v < IR_tresh && v > IR_tresh) {
+      pos_right = -(-12 + 16.0 * (c - 2) + 16.0 * (IR_tresh - last_v) / (v - last_v));
+      found = 1;
+    }
+    last_v = v;
+  }
+  
+}
+
+
+/**
+ * @brief This function sets the multiplexer input channel by writing the right binary combination to 3 control pins (A, B, C).
+ */
+static void adc_set_channel(int channel) 
+{
+  #ifdef Raspberry
+	gpio_put_masked(digitalPinToBitMask(MUXA_PIN) | digitalPinToBitMask(MUXB_PIN) | digitalPinToBitMask(MUXC_PIN), channel << MUXA_PIN);// This function (from the Raspberry Pi Pico SDK) sets several GPIO pins at once using a bitmask.
+  #endif
+  #ifdef Arduino
+      digitalWrite(MUXA_PIN, channel & 1);
+      digitalWrite(MUXB_PIN, (channel >> 1) & 1);
+      digitalWrite(MUXC_PIN, (channel >> 2) & 1);
+    
+  #endif
+}
+
+/**
+* @brief It reads an analog value from a multiplexed ADC input.
+*/
+uint16_t read_adc(int channel)
+{
+	adc_set_channel(channel); // Swi  tch external MUX to the desired channel
+  delayMicroseconds(100);
+	return analogRead(A2);    // The mux connects to analog input A2
+}
+
+/**
+ * @brief This function reads all of the robot’s infrared line sensors and stores their values in an array.
+ */
+void IRLine_t::readIRSensors(void)
+{
+  byte c;  // Read the five IR sensors using the AD converter
+  for (c = 0; c < IRSENSORS_COUNT; c++) 
+  {
+    robot.IRLine.IR_values[(IRSENSORS_COUNT - 1) -c] = 1023 - read_adc(3 + c);
+  }
+  //Serial.println();
+}
+
+/**
+ * @brief  This function compresses them to 6 bits each and stores all five inside one 32-bit number
+ * You have 5 IR sensors, each giving a 10-bit reading (from analogRead(), range 0–1023).
+ */
+uint32_t IRLine_t::encodeIRSensors(void)
+{
+  byte c;                                           // Encode five IR sensors with 6 bits for each sensor
+  uint32_t result = robot.IRLine.IR_values[0] >> 4; // From 10 bits to 6 bits
+  for (c = 1; c < 5; c++)
+  {
+    result = (result << 6) | (robot.IRLine.IR_values[c] >> 4);
+  }
+  return result;
+}
+
+
+/**
+ * @brief Print the values of each the IR Sensor
+ */
+void IRLine_t::printIRLine(void)
+{
+  Serial.print(robot.IRLine.IR_values[0]);
+  Serial.print("               ");
+  Serial.print(robot.IRLine.IR_values[1]);
+  Serial.print("               ");
+  Serial.print(robot.IRLine.IR_values[2]);
+  Serial.print("               ");
+  Serial.print(robot.IRLine.IR_values[3]);
+  Serial.print("               ");
+  Serial.println(robot.IRLine.IR_values[4]);
+}
+
+
+
+/**
+ * Node detection
+ * @brief This function analyzes the five IR sensors and classifies what kind of "node" (road pattern) the robot is currently over:
+ * last_node{
+ * E -> Erro or unknown
+ * L -> Left junction
+ * R -> Rigth junction
+ * B → Both sides black (cross or T-junction)
+ * W → White (no line, maybe after a junction or U-turn)
+ * N → Normal line
+ * }
+ * 
+ * | Condition          | Pattern                        | Meaning                              | Returned char |
+| ------------------ | ------------------------------ | ------------------------------------ | ------------- |
+| `XXXOO`            | Left 3 dark, right 2 light     | Left node detected                   | `'L'`         |
+| `OOXXX`            | Right 3 dark, left 2 light     | Right node detected                  | `'R'`         |
+| `XXXXX`            | All dark                       | Cross / T-junction / End             | `'B'`         |
+| `OOOOO`            | All light                      | Off the line (after turn or no line) | `'W'`         |
+| Single sensor dark | Regular line following pattern | `'N'`                                |               |
+| Anything else      | No clear match                 | `'E'`                                |               |
+
+ */
+char IRLine_t::detectNode( )
+{
+  static char last_node = 'E';
+  static int stability_count = 0;
+  static int  required_stability = 40;
+  
+
+  char current_node;
+
+  // left -> XXXOO
+  if (IR_values[0] > IR_tresh && IR_values[1] > IR_tresh && IR_values[2] > IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh)
+  {
+    current_node = 'L';
+  }
+  // right -> OOXXX
+  else if (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] > IR_tresh && IR_values[3] > IR_tresh && IR_values[4] > IR_tresh)
+  {
+    current_node = 'R';
+  }
+  // T junction, Cross junc\tion or End -> XXXXX
+  else if (IR_values[0] > IR_tresh && IR_values[1] > IR_tresh && IR_values[2] > IR_tresh && IR_values[3] > IR_tresh && IR_values[4] > IR_tresh)
+  {
+    current_node = 'B';
+  }
+  // After T or after U-Turn -> OOOOO
+  else if (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh)
+  {
+    current_node = 'W';
+  }
+  // Normal line
+  else if ((IR_values[0] < IR_tresh && IR_values[1] > IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh) || // OXOOO
+           (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] > IR_tresh && IR_values[4] < IR_tresh) || // OOOOX
+           (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] > IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh) || // OOOXO
+           (IR_values[0] > IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh))   // XOOOO
+  {
+    current_node = 'N';
+  }
+  else
+  {
+    current_node = 'E';
+  }
+
+  // If the same node type is detected again → increase the stability counter.
+  // If it changes → reset the counter and update last_node.
+
+  if (current_node == last_node)
+  {
+    stability_count++;
+  }
+  else
+  {
+    stability_count = 0;
+    last_node = current_node;
+  }
+
+  if (stability_count >= required_stability) // Only returns a detected node when it has stayed stable for at least 40 cycles.
+  {
+    #ifdef DEBUG
+    Serial.print("Node: ");
+    Serial.println(current_node);
+    #endif
+    return current_node;
+  }
+
+  // Return 'E' (Error/Unknown) until a node is stable enough
+  return 'E';
+}
