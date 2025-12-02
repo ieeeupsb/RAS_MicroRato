@@ -1,5 +1,6 @@
-//#define RUN 
-#define TEST
+#define RUN 
+//#define SOLVE
+//#define TEST
 #define DEBUG
 //#define SUPERDEBUG
 
@@ -14,7 +15,7 @@ extern robot_t robot;
 stack<char> path_taken, solved_path;
 //vector <char> movements_made;
 
-StateNamesMain currentStateMain = IDLE_MAIN;
+StateNamesMain currentStateMain = MAP;//IDLE_MAIN;
 StateNamesMap currentStateMap = IDLE_MAP;
 StateNamesSolve currentStateSolve = IDLE_SOLVE;
 StateNamesTest currentStateTest = FOLLOW_TEST;
@@ -245,17 +246,17 @@ void Map_FSM_Handler()
 				printf("-- Current state map = FOLLOW_LINE\n");
 				#endif
 
-				if(detect_all_white()) //OOOOO
+				if(robot.IRLine.detectNode()=='W') //OOOOO
 				{
 					currentStateMap = U_TURN;
 				}
 				
-        if(detect_right() || detect_full_line()) //OOXXX || XXXXX
+        if(robot.IRLine.detectNode()=='R' || robot.IRLine.detectNode()=='B') //OOXXX || XXXXX
         {
           currentStateMap = SMALL_FORWARD;
         }
 
-        if(detetct_left()) //XXXOO
+        if(robot.IRLine.detectNode()=='L') //XXXOO
         {
           currentStateMap = LEFT_TURN_MAP;
         }
@@ -310,12 +311,12 @@ void Map_FSM_Handler()
         printf("-- Current state map = SMALL_FORWARD\n");
         #endif
 				
-        if(detect_forward()) //OOXOO
+        if(robot.IRLine.detectNode()=='N') //OOXOO
         {
           currentStateMap = FOLLOW_LINE_MAP;
         }
 
-        if(detect_all_black()) //XXXXX
+        if(robot.IRLine.detectNode()=='B') //XXXXX
         {
           currentStateMap = END;
         }
@@ -424,7 +425,7 @@ switch(currentStateMap)
 
 
 
-
+#ifdef SOLVE
 void Solve_FSM_Handler()
 {
   	switch (currentStateSolve)
@@ -593,6 +594,7 @@ StateNamesFodas
 
 }
 
+#endif
 #endif
 
 

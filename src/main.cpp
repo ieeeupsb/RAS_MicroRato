@@ -61,6 +61,7 @@ void loop() {
   // Read and print sensors
     robot.IRLine.readIRSensors();
     //robot.IRLine.printIRLine();
+    //robot.IRLine.detectNode();
 
 
 
@@ -73,12 +74,13 @@ void loop() {
   /**
    * State Machines Handlers
    */
-    // Main_FSM_Handler();
-    // Map_FSM_Handler();
+     Main_FSM_Handler();
+     Map_FSM_Handler();
     // Solve_FSM_Handler();
     //Test_FSM_Handler();
-    FodaseFMSHandler();
+    //FodaseFMSHandler();
   //** End of State Machines Handlers
+  
 
   #ifdef DEBUG
     // Serial.printf("PWM1: %d\n",robot.PWM_1);

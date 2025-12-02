@@ -339,9 +339,11 @@ char IRLine_t::detectNode( )
   }
   // Normal line
   else if ((IR_values[0] < IR_tresh && IR_values[1] > IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh) || // OXOOO
-           (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] > IR_tresh && IR_values[4] < IR_tresh) || // OOOOX
-           (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] > IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh) || // OOOXO
-           (IR_values[0] > IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh))   // XOOOO
+           (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] > IR_tresh && IR_values[4] < IR_tresh) || // OOOXO
+           (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] > IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh) || // OOXOO
+           (IR_values[0] > IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh) || // XOOOO
+           (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] > IR_tresh)    // OOOOX
+           )   
   {
     current_node = 'N';
   }
