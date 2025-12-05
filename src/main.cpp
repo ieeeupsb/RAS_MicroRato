@@ -12,7 +12,16 @@
 void init_PIO_dual_encoders(int enc1_pin_A, int enc2_pin_A);
 int read_PIO_encoder(int sm);
 
+volatile long enc_left = 0;
+volatile long enc_right = 0;
 
+void enc_left_ISR() { //
+    enc_left++;
+}
+
+void enc_right_ISR() {
+    enc_right++;
+}
 
 
 void setup()
@@ -28,6 +37,11 @@ void setup()
   pinMode(ENC1_B, INPUT_PULLUP);
   pinMode(ENC2_A, INPUT_PULLUP);
   pinMode(ENC2_B, INPUT_PULLUP);
+
+  attachInterrupt(digitalPinToInterrupt(ENC1_A), enc_left_ISR, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENC1_B), enc_left_ISR, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENC2_A), enc_right_ISR, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENC2_B), enc_right_ISR, CHANGE);
 
 
  
@@ -51,7 +65,7 @@ void setup()
 
   //Initialize the robot stopped
  
-  
+  robot.stop();
 }
 
 
@@ -59,26 +73,33 @@ void loop() {
 		
     
   // Read and print sensors
-    robot.IRLine.readIRSensors();
-    //robot.IRLine.printIRLine();
-    //robot.IRLine.detectNode();
+    // robot.IRLine.readIRSensors();
+    // robot.IRLine.printIRLine();
+    // robot.IRLine.detectNode();
+
+    // delay(50);
+
+    // robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+    // robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
 
 
+	  // edge_detection();
+    Serial.print("L = ");
+    Serial.print(enc_left);
+    Serial.print("   R = ");
+    Serial.println(enc_right);
+    delay(150);
 
-    robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
-    robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
 
-
-	  edge_detection();
 
   /**
    * State Machines Handlers
    */
-     Main_FSM_Handler();
-     Map_FSM_Handler();
+     //Main_FSM_Handler();
+     //Map_FSM_Handler();
     // Solve_FSM_Handler();
     //Test_FSM_Handler();
-    //FodaseFMSHandler();
+    FodaseFMSHandler();
   //** End of State Machines Handlers
   
 
