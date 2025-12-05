@@ -15,7 +15,7 @@ int read_PIO_encoder(int sm);
 volatile long enc_left = 0;
 volatile long enc_right = 0;
 
-void enc_left_ISR() { //
+void enc_left_ISR() {
     enc_left++;
 }
 
@@ -76,8 +76,6 @@ void loop() {
     // robot.IRLine.readIRSensors();
     // robot.IRLine.printIRLine();
     // robot.IRLine.detectNode();
-
-    // delay(50);
 
     // robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
     // robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
