@@ -12,6 +12,9 @@
 #ifndef NUM_WHEELS
 #define NUM_WHEELS 2
 
+extern volatile long enc_left;
+extern volatile long enc_right;
+
 typedef enum { 
   cm_pwm,
   cm_pid
