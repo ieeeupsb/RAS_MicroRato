@@ -2,11 +2,11 @@
 #define RESET_BUTTON 27
 
 
-#define ENC1_A 2
-#define ENC1_B 3
+#define ENC1_A 4
+#define ENC1_B 5
 
-#define ENC2_A 0
-#define ENC2_B 1
+#define ENC2_A 1
+#define ENC2_B 0
 
 
 
