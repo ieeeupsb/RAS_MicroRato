@@ -33,6 +33,10 @@
 
 robot_t robot;
 
+extern volatile long enc_left;
+extern volatile long enc_right;
+
+
 int nominal_speed = NOMINAL_SPEED;
 int follow_speed = FOLLOW_SPEED;
 
