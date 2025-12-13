@@ -8,7 +8,7 @@
 #define ENC2_A 1
 #define ENC2_B 0
 
-
+#define ENCODER_PPR 5500.0
 
 #define MOTOR1A_PIN 16
 #define MOTOR1B_PIN 17
@@ -27,7 +27,7 @@
 
 #define NOMINAL_SPEED  FOLLOW_SPEED + 30//0-255 directly to motors PWM
 
-#define FOLLOW_SPEED   50//0-255 directly to motors PWM
+#define FOLLOW_SPEED   70//0-255 directly to motors PWM
 //tested values
 //80
 
