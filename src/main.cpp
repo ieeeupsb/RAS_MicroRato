@@ -16,11 +16,25 @@ volatile long enc_left = 0;
 volatile long enc_right = 0;
 
 void enc_left_ISR() {
-    enc_left++;
+    int A = digitalRead(ENC1_A);
+    int B = digitalRead(ENC1_B);
+    
+    if (A == B) {
+        enc_left++;
+    } else {
+        enc_left--;
+    }
 }
 
 void enc_right_ISR() {
-    enc_right++;
+    int A = digitalRead(ENC2_A);
+    int B = digitalRead(ENC2_B);
+    
+    if (A == B) {
+        enc_right++;
+    } else {
+        enc_right--;
+    }
 }
 
 
@@ -61,6 +75,7 @@ void setup()
   
   //init_PIO_dual_encoders(ENC1_A, ENC2_A);
 
+  
   analogReadResolution(10);
 
   //Initialize the robot stopped
@@ -73,31 +88,34 @@ void loop() {
 		
     
   // Read and print sensors
-    // robot.IRLine.readIRSensors();
+    robot.IRLine.readIRSensors();
     // robot.IRLine.printIRLine();
-    // robot.IRLine.detectNode();
+    robot.IRLine.detectNode();
 
-    // robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
-    // robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
+    robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+    robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
 
-
-	  // edge_detection();
+    //Encoder reading
+	  edge_detection();
     Serial.print("L = ");
     Serial.print(enc_left);
     Serial.print("   R = ");
     Serial.println(enc_right);
     delay(150);
 
+    
+
 
 
   /**
    * State Machines Handlers
    */
-     //Main_FSM_Handler();
-     //Map_FSM_Handler();
-    // Solve_FSM_Handler();
+    // Main_FSM_Handler();
+    // Map_FSM_Handler();
+    //Solve_FSM_Handler();
     //Test_FSM_Handler();
-    FodaseFMSHandler();
+    
+    //FodaseFMSHandler();
   //** End of State Machines Handlers
   
 
@@ -106,8 +124,3 @@ void loop() {
     // Serial.printf("PWM2%d\n",robot.PWM_2);
   #endif
 } 
-
-
-
-
-
