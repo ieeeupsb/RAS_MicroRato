@@ -37,6 +37,8 @@ extern volatile long enc_left;
 extern volatile long enc_right;
 
 
+
+
 int nominal_speed = NOMINAL_SPEED;
 int follow_speed = FOLLOW_SPEED;
 
@@ -58,8 +60,8 @@ robot_t::robot_t()
 void robot_t::odometry(void)
 {
   // Estimate wheels speed using the encoders
-  w1e = enc1 * TWO_PI / (2.0 * 1920.0 * dt);
-  w2e = enc2 * TWO_PI / (2.0 * 1920.0 * dt);
+  w1e = enc1 * TWO_PI / (2.0 * ENCODER_PPR * dt);
+  w2e = enc2 * TWO_PI / (2.0 * ENCODER_PPR * dt);
 
   v1e = w1e * wheel_radius;
   v2e = w2e * wheel_radius;
@@ -170,7 +172,7 @@ int robot_t::IR_sum()
     if (robot.IR_sum() < 2500) {
         
         error = -1.1 * IRLine.IR_values[0] - 1.0 * IRLine.IR_values[1] + 1.0 * IRLine.IR_values[3] + 1.1 * IRLine.IR_values[4];
-        Serial.printf(" %d ", error);
+        Serial.printf(" %.2f ", error);
 
         
         integral += error;
@@ -201,10 +203,10 @@ int robot_t::IR_sum()
       PWM_2 = follow_speed;
     }
     
-    if(IRLine.IR_values[0] < IR_tresh && IRLine.IR_values[1] < IR_tresh && IRLine.IR_values[2] < IR_tresh && IRLine.IR_values[3] < IR_tresh && IRLine.IR_values[4] < IR_tresh)
-    {
-      stop(); 
-    }
+    // if(IRLine.IR_values[0] < IR_tresh && IRLine.IR_values[1] < IR_tresh && IRLine.IR_values[2] < IR_tresh && IRLine.IR_values[3] < IR_tresh && IRLine.IR_values[4] < IR_tresh)
+    // {
+    //   stop(); 
+    // }
 }
 
 // bool robot_t::align() 
@@ -250,57 +252,80 @@ int robot_t::IR_sum()
 
 void robot_t::stop()
 {
-  robot.PWM_1 = 0;
-  robot.PWM_2 = 0; 
+  PWM_1 = 0;
+  PWM_2 = 0; 
 }
 
-void robot_t::right_turn()
-{
-  static unsigned long start_time = 0;
-    if (start_time == 0) {
-        start_time = millis();
-       PWM_1 = nominal_speed;
-       PWM_2 = 0;
-    }
-
-    if (millis() - start_time > 800) { // 435ms to turn ~90º
-        END_TURN = true;
-        start_time = 0; // reset for next turn
-    }
+void robot_t::reset_encoders() {
+    enc_left = 0;
+    enc_right = 0;
 }
 
-
+long robot_t::get_avg_encoder_ticks() {
+    return (abs(enc_left) + abs(enc_right)) / 2;
+}
 
 void robot_t::left_turn()
 {
-  static unsigned long start_time = 0;
-    if (start_time == 0) {
-        start_time = millis();
-       PWM_1 = 0;
-       PWM_2 = nominal_speed;
+    const long TICKS_90_DEG = ENCODER_PPR / 4;  
+    
+    if (!is_turning) {
+        reset_encoders();
+        PWM_1 = -NOMINAL_SPEED * 0.7;
+        PWM_2 = NOMINAL_SPEED * 0.7;
+        is_turning = true;
     }
 
-    if (millis() - start_time > 800) { // 435ms to turn ~90º
+    long avg_ticks = get_avg_encoder_ticks();
+
+    if (avg_ticks >= TICKS_90_DEG) {
+        stop();
+        is_turning = false;
         END_TURN = true;
-        start_time = 0; // reset for next turn
     }
+}
+
+
+void robot_t::right_turn()
+{
+    const long TICKS_90_DEG = ENCODER_PPR / 4;  
+    
+    if (!is_turning) {
+        reset_encoders();
+        PWM_1 = NOMINAL_SPEED * 0.7;
+        PWM_2 = -NOMINAL_SPEED * 0.7;
+        is_turning = true;
+    }
+
+    long avg_ticks = get_avg_encoder_ticks();
+
+    if (avg_ticks >= TICKS_90_DEG) {
+        stop();
+        is_turning = false;
+        END_TURN = true;
+      }
 }
 
   void robot_t::u_turn()
   {
-      static unsigned long start_time = 0;
-    if (start_time == 0) {
-        start_time = millis();
-       PWM_1 = nominal_speed;
-       PWM_2 = -nominal_speed;
+    const long TICKS_180_DEG = ENCODER_PPR / 2;  
+    
+    if (!is_turning) {
+        reset_encoders();
+        PWM_1 = -NOMINAL_SPEED * 0.7;
+        PWM_2 = NOMINAL_SPEED * 0.7;
+        is_turning = true;
     }
 
-    if (millis() - start_time > 80) { // 833ms to turn ~180º
+    long avg_ticks = get_avg_encoder_ticks();
+
+    if (avg_ticks >= TICKS_180_DEG) {
+        stop();
+        is_turning = false;
         END_TURN = true;
-        start_time = 0; // reset for next turn
-    }
-
+      }
   }
+
   void robot_t::reverse()
   {
     PWM_1 =  -nominal_speed;
