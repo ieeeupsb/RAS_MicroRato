@@ -1,7 +1,7 @@
 #define RUN 
 //#define SOLVE
 //#define TEST
-#define DEBUG
+//#define DEBUG
 //#define SUPERDEBUG
 
 #include <Arduino.h>
@@ -104,7 +104,7 @@ void stop_timer(timerBlock* t)
 
 
 #ifdef RUN
-void main_FSM_Handler() 
+void Main_FSM_Handler() 
 {
  switch (currentStateMain) 
 		{
@@ -116,10 +116,10 @@ void main_FSM_Handler()
 				#endif
 
 				
-				if (digitalRead(START_BUTTON)) 
-				{
+				// if (digitalRead(START_BUTTON)) 
+				// {
     					currentStateMain = MAP;
-        }
+        // }
 
 				
 				break;
@@ -273,6 +273,7 @@ void Map_FSM_Handler()
 				if(robot.END_TURN)
 				{
           currentStateMap = FOLLOW_LINE_MAP;
+          robot.END_TURN = false;
 				}
 
 			break;
@@ -320,6 +321,8 @@ void Map_FSM_Handler()
         {
           currentStateMap = END;
         }
+
+        
 
 			break;
 
