@@ -95,6 +95,8 @@ float right_v = 0.0, left_v = 0.0, right_w = 0.0, left_w = 0.0;
   void u_turn();
   void reverse();
   void forward();
+  void reset_encoders();
+  long get_avg_encoder_ticks();
 
 
   int IR_sum();
