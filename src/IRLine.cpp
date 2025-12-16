@@ -314,43 +314,29 @@ static char last_node = 'E';
 static int stability_count = 0;
 static int  required_stability = 2;
 
+char binary_pattern[6] = "";  // Initialize empty
+for(int i = 0; i < 5; i++) {
+    char bit[2] = { (IR_values[i] > IR_tresh ? '1' : '0'), '\0' };  // Single char as string
+    strcat(binary_pattern, bit);  // Append the bit
+} 
 
 char current_node;
 
-// left -> XXXOO
-if (IR_values[0] > IR_tresh && IR_values[1] > IR_tresh && IR_values[2] > IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh)
-{
-current_node = 'L';
+if(strcmp(binary_pattern, "11100") == 0 || strcmp(binary_pattern, "11000") == 0) {
+    current_node = 'L'; // Left node detected
+} else if (strcmp(binary_pattern, "00111") == 0 || strcmp(binary_pattern, "00011") == 0) {
+    current_node = 'R'; // Right node detected
+} else if (strcmp(binary_pattern, "11111") == 0) {
+    current_node = 'B'; // Cross / T-junction / End
+} else if (strcmp(binary_pattern, "00000") == 0) {
+    current_node = 'W'; // Off the line
+} else if (strcmp(binary_pattern, "01110") == 0 || strcmp(binary_pattern, "01100") == 0 ||
+           strcmp(binary_pattern, "00110") == 0) {
+    current_node = 'N'; // Normal line
+} else {
+    current_node = 'N'; // Error or unknown
 }
-// right -> OOXXX
-else if (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] > IR_tresh && IR_values[3] > IR_tresh && IR_values[4] > IR_tresh)
-{
-current_node = 'R';
-}
-// T junction, Cross junction or End -> XXXXX
-else if (IR_values[0] > IR_tresh && IR_values[1] > IR_tresh && IR_values[2] > IR_tresh && IR_values[3] > IR_tresh && IR_values[4] > IR_tresh)
-{
-current_node = 'B';
-}
-// After T or after U-Turn -> OOOOO
-else if (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh)
-{
-current_node = 'W';
-}
-// Normal line
-else if ((IR_values[0] < IR_tresh && IR_values[1] > IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh) || // OXOOO
-           (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] > IR_tresh && IR_values[4] < IR_tresh) || // OOOXO
-           (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] > IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh) || // OOXOO
-           (IR_values[0] > IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] < IR_tresh) || // XOOOO
-           (IR_values[0] < IR_tresh && IR_values[1] < IR_tresh && IR_values[2] < IR_tresh && IR_values[3] < IR_tresh && IR_values[4] > IR_tresh)    // OOOOX
-        )   
-{
-current_node = 'N';
-}
-else
-{
-current_node = 'E';
-}
+
 
 // If the same node type is detected again → increase the stability counter.
 // If it changes → reset the counter and update last_node.
@@ -365,15 +351,11 @@ stability_count = 0;
 last_node = current_node;
 }
 
-if (stability_count >= required_stability) // Only returns a detected node when it has stayed stable for at least 40 cycles.
-{
 #ifdef DEBUG
 Serial.print("Node: ");
-Serial.println(current_node);
+Serial.print(current_node);
+Serial.println();
 #endif
 return current_node;
-}
 
-// Return 'E' (Error/Unknown) until a node is stable enough
-return 'E';
 }

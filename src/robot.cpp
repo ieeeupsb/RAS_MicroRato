@@ -30,6 +30,7 @@
 #include "robot.h"
 #include "IRLine.h"
 #include "config.h"
+#include <string.h>
 
 robot_t robot;
 
@@ -202,7 +203,6 @@ int robot_t::IR_sum()
       PWM_1 = follow_speed;
       PWM_2 = follow_speed;
     }
-    
     // if(IRLine.IR_values[0] < IR_tresh && IRLine.IR_values[1] < IR_tresh && IRLine.IR_values[2] < IR_tresh && IRLine.IR_values[3] < IR_tresh && IRLine.IR_values[4] < IR_tresh)
     // {
     //   stop(); 
@@ -252,87 +252,113 @@ int robot_t::IR_sum()
 
 void robot_t::stop()
 {
-  PWM_1 = 0;
-  PWM_2 = 0; 
+  robot.PWM_1 = 0;
+  robot.PWM_2 = 0; 
 }
-
-void robot_t::reset_encoders() {
-    enc_left = 0;
-    enc_right = 0;
-}
-
-long robot_t::get_avg_encoder_ticks() {
-    return (abs(enc_left) + abs(enc_right)) / 2;
-}
-
-void robot_t::left_turn()
-{
-    const long TICKS_90_DEG = ENCODER_PPR / 4;  
-    
-    if (!is_turning) {
-        reset_encoders();
-        PWM_1 = -NOMINAL_SPEED * 0.7;
-        PWM_2 = NOMINAL_SPEED * 0.7;
-        is_turning = true;
-    }
-
-    long avg_ticks = get_avg_encoder_ticks();
-
-    if (avg_ticks >= TICKS_90_DEG) {
-        stop();
-        is_turning = false;
-        END_TURN = true;
-    }
-}
-
 
 void robot_t::right_turn()
 {
-    const long TICKS_90_DEG = ENCODER_PPR / 4;  
-    
-    if (!is_turning) {
-        reset_encoders();
-        PWM_1 = NOMINAL_SPEED * 0.7;
-        PWM_2 = -NOMINAL_SPEED * 0.7;
-        is_turning = true;
-    }
+  static unsigned long start_time = 0;
+  start_time = millis();
+  PWM_1 = nominal_speed;  // Left motor forward
+  PWM_2 = -nominal_speed;              // Right motor stopped
+  robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+  robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
+  delay(RIGHT_TURN_TIME);
 
-    long avg_ticks = get_avg_encoder_ticks();
-
-    if (avg_ticks >= TICKS_90_DEG) {
-        stop();
-        is_turning = false;
-        END_TURN = true;
-      }
 }
 
-  void robot_t::u_turn()
-  {
-    const long TICKS_180_DEG = ENCODER_PPR / 2;  
+
+void robot_t::left_turn()
+{
+  static unsigned long start_time = 0;
+  start_time = millis();
+  PWM_1 = -nominal_speed;              // Left motor stopped
+  PWM_2 = nominal_speed;  // Right motor forward
+  robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+  robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
+  delay(LEFT_TURN_TIME);
+}
+
+void robot_t::u_turn()
+{
+  static unsigned long start_time = 0;
+  start_time = millis();
+  PWM_1 = nominal_speed;   // Left motor forward
+  PWM_2 = -nominal_speed;  // Right motor backward
+  robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+  robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
+  delay(U_TURN_TIME);
+  
+}
+
+void robot_t::reverse()
+{
+  PWM_1 = -nominal_speed;
+  PWM_2 = -nominal_speed;
+}
+
+
+void robot_t::forward()
+{
+  PWM_1 = nominal_speed;
+  PWM_2 = nominal_speed;
+  robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+  robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
+  delay(50);
+}
+
+void robot_t::small_forward()
+{
+  int start_time = millis();
+  PWM_1 = nominal_speed;
+  PWM_2 = nominal_speed;
+  robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+  robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
+  delay(SMALL_FWD_TIME);
+  
+}
+
+char robot_t::get_node(){
+  int IRReads[IRSENSORS_COUNT];
+  for(int k =0; k < IRSENSORS_COUNT; k++){
+    IRReads[k] = 0;
+  }
+  for(int k =0; k < NODE_DETECTION; k++){
     
-    if (!is_turning) {
-        reset_encoders();
-        PWM_1 = -NOMINAL_SPEED * 0.7;
-        PWM_2 = NOMINAL_SPEED * 0.7;
-        is_turning = true;
+    for (int i = 0; i < IRSENSORS_COUNT; i++) {
+      IRReads[i] += IRLine.IR_values[i];
     }
-
-    long avg_ticks = get_avg_encoder_ticks();
-
-    if (avg_ticks >= TICKS_180_DEG) {
-        stop();
-        is_turning = false;
-        END_TURN = true;
-      }
+    robot.followLine();
+    robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+    robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
+    delay(1);
+  }
+  for(int k =0; k < IRSENSORS_COUNT; k++){
+    IRReads[k] = IRReads[k]/NODE_DETECTION;
   }
 
-  void robot_t::reverse()
-  {
-    PWM_1 =  -nominal_speed;
-    PWM_2 = -nominal_speed;
+  char binary_pattern[6] = "";  // Initialize empty
+  for(int i = 0; i < 5; i++) {
+      char bit[2] = { (IRReads[i] > IRLine.IR_tresh ? '1' : '0'), '\0' };  // Single char as string
+      strcat(binary_pattern, bit);  // Append the bit
+  } 
+
+  char current_node;
+
+  if(strcmp(binary_pattern, "11100") == 0 || strcmp(binary_pattern, "11000") == 0) {
+      current_node = 'L'; // Left node detected
+  } else if (strcmp(binary_pattern, "00111") == 0 || strcmp(binary_pattern, "00011") == 0) {
+      current_node = 'R'; // Right node detected
+  } else if (strcmp(binary_pattern, "11111") == 0) {
+      current_node = 'B'; // Cross / T-junction / End
+  } else if (strcmp(binary_pattern, "00000") == 0) {
+      current_node = 'W'; // Off the line
+  } else if (strcmp(binary_pattern, "01110") == 0 || strcmp(binary_pattern, "01100") == 0 ||
+            strcmp(binary_pattern, "00110") == 0) {
+      current_node = 'N'; // Normal line
+  } else {
+      current_node = 'N'; // Error or unknown
   }
-  void robot_t::forward( )
-  {
-    PWM_1 =  nominal_speed;
-    PWM_2 = nominal_speed;
-  }
+  return current_node;
+}

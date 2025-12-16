@@ -81,6 +81,7 @@ void setup()
   //Initialize the robot stopped
  
   robot.stop();
+ 
 }
 
 
@@ -88,30 +89,27 @@ void loop() {
 		
     
   // Read and print sensors
+    
     robot.IRLine.readIRSensors();
-    // robot.IRLine.printIRLine();
+    //robot.IRLine.printIRLine();
     robot.IRLine.detectNode();
-
     robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
     robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
-
+  
     //Encoder reading
-	  edge_detection();
-    Serial.print("L = ");
-    Serial.print(enc_left);
-    Serial.print("   R = ");
-    Serial.println(enc_right);
-    delay(150);
-
-    
-
+	  // edge_detection();
+    // Serial.print("L = ");
+    // Serial.print(enc_left);
+    // Serial.print("   R = ");
+    // Serial.println(enc_right);
+    //delay(150);
 
 
   /**
    * State Machines Handlers
    */
-    // Main_FSM_Handler();
-    // Map_FSM_Handler();
+    Main_FSM_Handler();
+    Map_FSM_Handler();
     //Solve_FSM_Handler();
     //Test_FSM_Handler();
     

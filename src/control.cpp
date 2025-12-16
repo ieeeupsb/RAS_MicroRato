@@ -1,7 +1,7 @@
 #define RUN 
 //#define SOLVE
 //#define TEST
-//#define DEBUG
+#define DEBUG
 //#define SUPERDEBUG
 
 #include <Arduino.h>
@@ -15,12 +15,6 @@ extern robot_t robot;
 stack<char> path_taken, solved_path;
 //vector <char> movements_made;
 
-StateNamesMain currentStateMain = MAP;//IDLE_MAIN;
-StateNamesMap currentStateMap = IDLE_MAP;
-StateNamesSolve currentStateSolve = IDLE_SOLVE;
-StateNamesTest currentStateTest = FOLLOW_TEST;
-StateNamesFodase currentStatefodase = FOLLOW_FODASE;
-
 // Variáveis globais
 bool END_MAP = false;
 bool END_SOLVE = false;
@@ -29,6 +23,7 @@ bool cross=false;
 int counter_align=0;
 static unsigned long forwardStartTime = 0;
 
+char node = ' ';
 
 //edge detection variables
 int p_START_BUTTON = 0;
@@ -106,7 +101,8 @@ void stop_timer(timerBlock* t)
 #ifdef RUN
 void Main_FSM_Handler() 
 {
- switch (currentStateMain) 
+
+switch (robot.currentStateMain) 
 		{
 			
 			case IDLE_MAIN :
@@ -118,7 +114,7 @@ void Main_FSM_Handler()
 				
 				// if (digitalRead(START_BUTTON)) 
 				// {
-    					currentStateMain = MAP;
+    					robot.currentStateMain = MAP;
         // }
 
 				
@@ -133,7 +129,7 @@ void Main_FSM_Handler()
 				
 				if(END_MAP)
 				{
-					currentStateMain = READY;
+					robot.currentStateMain = READY;
 				}
 
 			break;
@@ -148,12 +144,12 @@ void Main_FSM_Handler()
 				
 				if(digitalRead(START_BUTTON))
 				{
-					currentStateMain = SOLVE;
+					robot.currentStateMain = SOLVE;
 				}
 
         if(digitalRead(RESET_BUTTON))
         {
-          currentStateMain = MAP;
+          robot.currentStateMain = MAP;
         }
 
 			break;
@@ -166,7 +162,7 @@ void Main_FSM_Handler()
 		
 			if (END_SOLVE) 
 			{
-				currentStateMain = SOLVED; 
+				robot.currentStateMain = SOLVED; 
 			}
 		
 			break;
@@ -179,12 +175,12 @@ void Main_FSM_Handler()
 			
 			if (digitalRead(START_BUTTON)) 
 			{
-        currentStateMain = SOLVE;
+        robot.currentStateMain = SOLVE;
 			}
 
       if(digitalRead(RESET_BUTTON))
       {
-        currentStateMain = IDLE_MAIN;
+        robot.currentStateMain = IDLE_MAIN;
       }
 			break;
 
@@ -193,7 +189,7 @@ void Main_FSM_Handler()
         
 //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------     
 // Update outputs
-switch(currentStateMain)
+switch(robot.currentStateMain)
     {
     case IDLE_MAIN:
         //stop motors
@@ -214,17 +210,9 @@ switch(currentStateMain)
 }
 
 
-
-
-
-
-
-
-
-
 void Map_FSM_Handler()
 {
-    switch(currentStateMap)
+    switch(robot.currentStateMap)
 		{
 
 			case IDLE_MAP:
@@ -233,9 +221,9 @@ void Map_FSM_Handler()
 				printf("-- Current state map = IDLE\n");
 				#endif
 
-				if(currentStateMain == MAP)
+				if(robot.currentStateMain == MAP)
         {
-          currentStateMap = FOLLOW_LINE_MAP;
+          robot.currentStateMap = FOLLOW_LINE_MAP;
         }
 
 			break;
@@ -243,23 +231,37 @@ void Map_FSM_Handler()
 			case FOLLOW_LINE_MAP:
 
 				#ifdef DEBUG
-				printf("-- Current state map = FOLLOW_LINE\n");
+				Serial.print("-- Current state map = FOLLOW_LINE\n");
 				#endif
+        node = robot.IRLine.detectNode();
+        if(node == robot.past_node){
+          robot.node_count++;
+        } else {
+          robot.node_count = 0;
+          robot.past_node = node;
+        }
+        if(robot.node_count < NODE_DETECTION){
+          robot.currentStateMap = FOLLOW_LINE_MAP;
+        }
+        else{
+          
+          Serial.print("Stable node detected: ");
+          Serial.println(node);
+        
+          if(node=='W') //OOOOO
+          {
+            robot.currentStateMap = U_TURN;
+            robot.start_time_turn = millis();
+          }
+          
+          if(node=='R' || node=='B' || node=='L') //OOXXX || XXXXX
+          {
+            robot.currentStateMap = SMALL_FORWARD;
+            robot.start_time_turn = millis();
+          }
+        }
 
-				if(robot.IRLine.detectNode()=='W') //OOOOO
-				{
-					currentStateMap = U_TURN;
-				}
 				
-        if(robot.IRLine.detectNode()=='R' || robot.IRLine.detectNode()=='B') //OOXXX || XXXXX
-        {
-          currentStateMap = SMALL_FORWARD;
-        }
-
-        if(robot.IRLine.detectNode()=='L') //XXXOO
-        {
-          currentStateMap = LEFT_TURN_MAP;
-        }
 
       break;
 
@@ -267,14 +269,10 @@ void Map_FSM_Handler()
       case U_TURN:
 
         #ifdef DEBUG
-        printf("-- Current state map = U_TURN\n");
+        Serial.print("-- Current state map = U_TURN\n");
         #endif
-
-				if(robot.END_TURN)
-				{
-          currentStateMap = FOLLOW_LINE_MAP;
-          robot.END_TURN = false;
-				}
+        
+        robot.currentStateMap = FOLLOW_LINE_MAP;
 
 			break;
 
@@ -282,59 +280,71 @@ void Map_FSM_Handler()
 			case LEFT_TURN_MAP:
 
         #ifdef DEBUG
-        printf("-- Current state map = LEFT_TURN\n");
+        Serial.print("-- Current state map = LEFT_TURN\n");
         #endif
-
-        if(robot.END_TURN)
-        {
-          currentStateMap = FOLLOW_LINE_MAP;
-        }
+        
+        robot.currentStateMap = FOLLOW_LINE_MAP;
+        
 
       break;
 
       case RIGHT_TURN_MAP:
 
         #ifdef DEBUG
-        printf("-- Current state map = RIGHT_TURN\n");
+        Serial.print("-- Current state map = RIGHT_TURN\n");
         #endif
-
-        if(robot.END_TURN)
-        {
-          currentStateMap = FOLLOW_LINE_MAP;
-        }
+        
+        robot.currentStateMap = FOLLOW_LINE_MAP;
+        
 
       break;
 
 
       case SMALL_FORWARD:
-
         #ifdef DEBUG
-        printf("-- Current state map = SMALL_FORWARD\n");
+        Serial.print("-- Current state map = SMALL_FORWARD\n");
         #endif
-				
-        if(robot.IRLine.detectNode()=='N') //OOXOO
+        node = robot.IRLine.detectNode();
+        if( robot.past_node == 'L' ) //OOXXX
         {
-          currentStateMap = FOLLOW_LINE_MAP;
-        }
-
-        if(robot.IRLine.detectNode()=='B') //XXXXX
+          robot.currentStateMap = LEFT_TURN_MAP;
+          robot.start_time_turn = millis();
+          break;
+        }else if( robot.past_node == 'R' && (node == 'W' || node == 'R') ) //XXXOO
         {
-          currentStateMap = END;
+          robot.currentStateMap = RIGHT_TURN_MAP;
+          robot.start_time_turn = millis();
+          break;
+        }else if( robot.past_node == 'R' && node == 'N') //XXXOO but not stable yet
+        {
+          robot.currentStateMap = FOLLOW_LINE_MAP;
+          robot.start_time_turn = millis();
+          break;
         }
-
-        
+        else if( robot.past_node == 'B' && node == 'B') //XXXOO but not stable yet
+        {
+          robot.currentStateMap = END;
+          break;
+        }else if( robot.past_node == 'B' && node == 'W' ) //XXXOO but not stable yet
+        {
+          robot.currentStateMap = LEFT_TURN_MAP;
+          break;
+        }else if( robot.past_node == 'B' && node == 'N' ) //XXXOO but not stable yet
+        {
+          robot.currentStateMap = LEFT_TURN_MAP;
+        }
 
 			break;
 
       case FORWARD_MAP:
 
         #ifdef DEBUG
-        printf("-- Current state map = FORWARD\n");
+        Serial.print("-- Current state map = FORWARD\n");
         #endif
 
         if(1)
         {
-          currentStateMap = FOLLOW_LINE_MAP;
+          robot.currentStateMap = FOLLOW_LINE_MAP;
         }
 
       break;
@@ -342,12 +352,12 @@ void Map_FSM_Handler()
       case END:
 
         #ifdef DEBUG
-        printf("-- Current state map = END\n");
+        Serial.print("-- Current state map = END\n");
         #endif
-
-        if(1)
+        node = robot.IRLine.detectNode();
+        if(0)
         {
-          currentStateMap = IDLE_MAP;
+          robot.currentStateMap = IDLE_MAP;
 		    }
 
       break;
@@ -359,7 +369,7 @@ void Map_FSM_Handler()
  //update outputs
 
 // Update outputs
-switch(currentStateMap)
+switch(robot.currentStateMap)
     {
     case IDLE_MAP:
         
@@ -400,7 +410,7 @@ switch(currentStateMap)
 
     case SMALL_FORWARD:
         //small_forward function (maybe just forward function but with timer)
-        robot.forward();
+        robot.small_forward();
         break;
 
     case FORWARD_MAP:
@@ -957,9 +967,9 @@ void Test_FSM_Handler()
 }*/
 
 
-void FodaseFMSHandler()
+void FodaseFMSHandler(robot_t &robot)
 {
-  switch(currentStatefodase)
+  switch(robot.currentStatefodase)
   {
     case FOLLOW_FODASE:
       robot.followLine();

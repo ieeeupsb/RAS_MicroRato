@@ -48,7 +48,7 @@ class robot_t {
   float v1ref, v2ref;
   float w1ref, w2ref;
   float u1, u2;
-  int PWM_1, PWM_2;
+  int PWM_1 = NOMINAL_SPEED, PWM_2 = NOMINAL_SPEED;
   int PWM_1_req, PWM_2_req;
   control_mode_t control_mode;
 
@@ -62,8 +62,17 @@ class robot_t {
   double derivative = 0; // Derivative for each sensor
 
 
-float right_v = 0.0, left_v = 0.0, right_w = 0.0, left_w = 0.0;
-
+  float right_v = 0.0, left_v = 0.0, right_w = 0.0, left_w = 0.0;
+  
+  // Robot STATES AND CONTROLS
+  StateNamesMain currentStateMain = MAP;
+  StateNamesMap currentStateMap = IDLE_MAP;
+  StateNamesSolve currentStateSolve = IDLE_SOLVE;
+  StateNamesTest currentStateTest = FOLLOW_TEST;
+  StateNamesFodase currentStatefodase = FOLLOW_FODASE; 
+  int start_time_turn = 0;
+  int node_count = 0;
+  char past_node = ' ';
 
   float follow_v, follow_k;
   
@@ -95,9 +104,11 @@ float right_v = 0.0, left_v = 0.0, right_w = 0.0, left_w = 0.0;
   void u_turn();
   void reverse();
   void forward();
+  void small_forward();
   void reset_encoders();
   long get_avg_encoder_ticks();
 
+  char get_node();
 
   int IR_sum();
 };
