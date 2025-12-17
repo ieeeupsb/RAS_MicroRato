@@ -8,6 +8,7 @@
 //#include "PID.h"
 #include "IRLine.h"
 #include "state_machines.h"
+#include <vector>
 
 #ifndef NUM_WHEELS
 #define NUM_WHEELS 2
@@ -74,6 +75,9 @@ class robot_t {
   int node_count = 0;
   char past_node = ' ';
 
+  // node stack
+  std::vector<char> node_stack;
+
   float follow_v, follow_k;
   
   //PID_t PID[NUM_WHEELS];
@@ -108,7 +112,9 @@ class robot_t {
   void reset_encoders();
   long get_avg_encoder_ticks();
 
-  char get_node();
+  void printNodeStack();
+  
+  std::vector<char> solveNodeStack();
 
   int IR_sum();
 };

@@ -1,5 +1,5 @@
 #define RUN 
-//#define SOLVE
+#define SOLVE_MAP
 //#define TEST
 #define DEBUG
 //#define SUPERDEBUG
@@ -273,6 +273,7 @@ void Map_FSM_Handler()
         #endif
         
         robot.currentStateMap = FOLLOW_LINE_MAP;
+        robot.node_stack.push_back('U');
 
 			break;
 
@@ -284,7 +285,7 @@ void Map_FSM_Handler()
         #endif
         
         robot.currentStateMap = FOLLOW_LINE_MAP;
-        
+        robot.node_stack.push_back('L');
 
       break;
 
@@ -295,12 +296,13 @@ void Map_FSM_Handler()
         #endif
         
         robot.currentStateMap = FOLLOW_LINE_MAP;
-        
+        robot.node_stack.push_back('R');
 
       break;
 
 
       case SMALL_FORWARD:
+        
         #ifdef DEBUG
         Serial.print("-- Current state map = SMALL_FORWARD\n");
         #endif
@@ -355,6 +357,22 @@ void Map_FSM_Handler()
         Serial.print("-- Current state map = END\n");
         #endif
         node = robot.IRLine.detectNode();
+        robot.solveNodeStack();
+        robot.printNodeStack();
+        if(node == robot.past_node){
+          robot.node_count++;
+        } else {
+          robot.node_count = 0;
+          robot.past_node = node;
+        }
+        if(robot.node_count < 5000){
+          robot.currentStateMap = END;
+        }else{
+          if(node == 'N'){
+            robot.currentStateMap = IDLE_MAP;
+            robot.currentStateMain = SOLVE;
+          }
+        }
         if(0)
         {
           robot.currentStateMap = IDLE_MAP;
@@ -373,8 +391,6 @@ switch(robot.currentStateMap)
     {
     case IDLE_MAP:
         
-      robot.stop();
-
         break;
 
     case FOLLOW_LINE_MAP:
@@ -438,13 +454,11 @@ switch(robot.currentStateMap)
 
 
 
-#ifdef SOLVE
+#ifdef SOLVE_MAP
 void Solve_FSM_Handler()
 {
-  	switch (currentStateSolve)
+  	switch (robot.currentStateSolve)
 		{
-
-
 
 			case IDLE_SOLVE:
       
@@ -452,9 +466,9 @@ void Solve_FSM_Handler()
         printf("-- Current state solve = IDLE\n");
         #endif
 
-        if(currentStateMain == SOLVE)
+        if(robot.currentStateMain == SOLVE)
         {
-          currentStateSolve = FOLLOW_LINE_SOLVE;
+          robot.currentStateSolve = FOLLOW_LINE_SOLVE;
         }
 
 			break;
@@ -468,56 +482,67 @@ void Solve_FSM_Handler()
         printf("-- Current state solve = FOLLOW_LINE\n");
         #endif
 
-        if(Detect_node)
-        {
-          currentStateSolve  = GET_INSTRUCTION;
+        node = robot.IRLine.detectNode();
+        if(node == robot.past_node){
+          robot.node_count++;
+        } else {
+          robot.node_count = 0;
+          robot.past_node = node;
         }
-			break;
+        if(robot.node_count < NODE_DETECTION){
+          robot.currentStateSolve = FOLLOW_LINE_SOLVE;
+        }
+        else{
+          Serial.print("Stable node detected: ");
+          Serial.println(node);
+          if(node == 'N'){
+            robot.currentStateSolve = FOLLOW_LINE_SOLVE;
+          }else{
+            robot.currentStateSolve = GET_INSTRUCTION;
+          }
+          
+        }
 
-
-
+			  break;
 
 			case GET_INSTRUCTION:
 
         #ifdef DEBUG
         printf("-- Current state solve = GET_INSTRUCTION\n");
         #endif
-
-				if(instruction == 'R')
-				{
-					currentStateSolve = RIGHT_TURN_SOLVE;
-				}
-
-        if(instruction == 'L')
-        {
-          currentStateSolve = LEFT_TURN_SOLVE;
+        node = robot.IRLine.detectNode();
+        if(node == 'B'){
+          robot.currentStateSolve = FINISH;
+          break;
         }
-
-        if(instruction == 'F')
+        if(!robot.node_stack.empty())
         {
-          currentStateSolve = FORWARD_SOLVE;
+          char instruction = robot.node_stack.front();
+          robot.node_stack.erase(robot.node_stack.begin());
+          if(instruction == 'F'){
+            robot.currentStateSolve = FORWARD_SOLVE;
+          }else if(instruction == 'R'){
+            robot.currentStateSolve = RIGHT_TURN_SOLVE;
+          }else if(instruction == 'L'){
+            robot.currentStateSolve = LEFT_TURN_SOLVE;
+          }else if(instruction == 'U'){
+            robot.currentStateSolve = FINISH; //U-turns arent allowed in solve phase
+          }
         }
-      
-        if(instructions.empty())
+        else
         {
-          currentStateSolve = FINISH;
+          // No more instructions, go to FINISH
+          robot.currentStateSolve = FINISH;
         }
 
 			break;
-
-
-
 
 			case RIGHT_TURN_SOLVE:
 
         #ifdef DEBUG
         printf("-- Current state solve = RIGHT_TURN_SOLVE\n");
         #endif
-
-        if(back_on_line)
-        {
-          currentStateSolve = FOLLOW_LINE_SOLVE;
-        }
+        robot.currentStateSolve = FOLLOW_LINE_SOLVE;
 
 			break;
 
@@ -528,11 +553,7 @@ void Solve_FSM_Handler()
         #ifdef DEBUG
         printf("-- Current state solve = LEFT_TURN_SOLVE\n");
         #endif
-
-        if(back_on_line)
-        {
-          currentStateSolve = FOLLOW_LINE_SOLVE;
-        }
+        robot.currentStateSolve = FOLLOW_LINE_SOLVE;
 
       break;
 
@@ -541,11 +562,7 @@ void Solve_FSM_Handler()
         #ifdef DEBUG
         printf("-- Current state solve = FORWARD_SOLVE\n");
         #endif
-
-        if(OOXOO)
-        {
-          currentStateSolve = FOLLOW_LINE_SOLVE;
-        }
+        robot.currentStateSolve = FOLLOW_LINE_SOLVE;
 
       break;
 
@@ -555,9 +572,9 @@ void Solve_FSM_Handler()
         printf("-- Current state solve = FINISH\n");
         #endif
 
-        if(1)
+        if(0)
         {
-          currentStateSolve = IDLE_SOLVE;
+          robot.currentStateSolve = IDLE_SOLVE;
         }
 
       break;
@@ -569,20 +586,17 @@ void Solve_FSM_Handler()
 
  //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------     
 // Update outputs
-switch(currentStateSolve)
+switch(robot.currentStateSolve)
     {
     case IDLE_SOLVE:
-        robot.stop();
         break;
-StateNamesFodas
+
     case FOLLOW_LINE_SOLVE:
         robot.followLine();
         break;
 
     case GET_INSTRUCTION:
-        //get_instruction function 
-        //char currentInstruction = pathway.top(); 
-        //pathway.pop();
+        robot.small_forward();
         break;
 
     case RIGHT_TURN_SOLVE:
@@ -594,7 +608,7 @@ StateNamesFodas
         break;
 
     case FORWARD_SOLVE:
-        robot.forward();
+        robot.small_forward();
         break;
 
     case FINISH:

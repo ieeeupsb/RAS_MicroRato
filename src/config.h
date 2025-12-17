@@ -27,9 +27,9 @@
 
 #define NODE_DETECTION 50
 #define SMALL_FWD_TIME 200
-#define U_TURN_TIME 500
-#define RIGHT_TURN_TIME 500
-#define LEFT_TURN_TIME 500
+#define U_TURN_TIME 400
+#define RIGHT_TURN_TIME 400
+#define LEFT_TURN_TIME 400
 
 #define NOMINAL_SPEED  FOLLOW_SPEED + 30//0-255 directly to motors PWM
 

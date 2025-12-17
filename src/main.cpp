@@ -110,7 +110,7 @@ void loop() {
    */
     Main_FSM_Handler();
     Map_FSM_Handler();
-    //Solve_FSM_Handler();
+    Solve_FSM_Handler();
     //Test_FSM_Handler();
     
     //FodaseFMSHandler();

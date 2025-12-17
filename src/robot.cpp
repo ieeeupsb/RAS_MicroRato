@@ -30,7 +30,7 @@
 #include "robot.h"
 #include "IRLine.h"
 #include "config.h"
-#include <string.h>
+#include <string>
 
 robot_t robot;
 
@@ -282,6 +282,7 @@ void robot_t::left_turn()
 
 void robot_t::u_turn()
 {
+  char node = ' ';
   static unsigned long start_time = 0;
   start_time = millis();
   PWM_1 = nominal_speed;   // Left motor forward
@@ -289,6 +290,10 @@ void robot_t::u_turn()
   robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
   robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
   delay(U_TURN_TIME);
+  // while((millis() - start_time < U_TURN_TIME) && (node != 'N')) {
+  //   robot.IRLine.readIRSensors();
+  //   node = robot.IRLine.detectNode();
+  // }
   
 }
 
@@ -319,46 +324,49 @@ void robot_t::small_forward()
   
 }
 
-char robot_t::get_node(){
-  int IRReads[IRSENSORS_COUNT];
-  for(int k =0; k < IRSENSORS_COUNT; k++){
-    IRReads[k] = 0;
-  }
-  for(int k =0; k < NODE_DETECTION; k++){
+std::vector<char> robot_t::solveNodeStack()
+{
+    // Passo 1: Remover 'U's duplicados consecutivos
     
-    for (int i = 0; i < IRSENSORS_COUNT; i++) {
-      IRReads[i] += IRLine.IR_values[i];
+    std::vector<char> cleaned;
+    for (char c : node_stack) {
+        if (c != 'U' || cleaned.empty() || cleaned.back() != 'U') {
+            cleaned.push_back(c);
+        }
     }
-    robot.followLine();
-    robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
-    robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
-    delay(1);
-  }
-  for(int k =0; k < IRSENSORS_COUNT; k++){
-    IRReads[k] = IRReads[k]/NODE_DETECTION;
-  }
+    node_stack = cleaned;
 
-  char binary_pattern[6] = "";  // Initialize empty
-  for(int i = 0; i < 5; i++) {
-      char bit[2] = { (IRReads[i] > IRLine.IR_tresh ? '1' : '0'), '\0' };  // Single char as string
-      strcat(binary_pattern, bit);  // Append the bit
-  } 
+    // Regras de substituição
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (size_t i = 0; i + 2 < node_stack.size(); ++i) {
+            std::string sub = {node_stack[i], node_stack[i+1], node_stack[i+2]};
+            char replacement = '\0';
+            if (sub == "LUF") replacement = 'R';
+            else if (sub == "RUF") replacement = 'L';
+            else if (sub == "LUL") replacement = 'F';
+            else if (sub == "RUR") replacement = 'F';
+            else if (sub == "FUL") replacement = 'R';
+            else if (sub == "FUR") replacement = 'L';
 
-  char current_node;
+            if (replacement != '\0') {
+                node_stack[i] = replacement;
+                node_stack.erase(node_stack.begin() + i + 1, node_stack.begin() + i + 3);
+                changed = true;
+                break;  // Reinicia a varredura para evitar erros com sobreposições
+            }
+        }
+    }
+    return node_stack;
+}
 
-  if(strcmp(binary_pattern, "11100") == 0 || strcmp(binary_pattern, "11000") == 0) {
-      current_node = 'L'; // Left node detected
-  } else if (strcmp(binary_pattern, "00111") == 0 || strcmp(binary_pattern, "00011") == 0) {
-      current_node = 'R'; // Right node detected
-  } else if (strcmp(binary_pattern, "11111") == 0) {
-      current_node = 'B'; // Cross / T-junction / End
-  } else if (strcmp(binary_pattern, "00000") == 0) {
-      current_node = 'W'; // Off the line
-  } else if (strcmp(binary_pattern, "01110") == 0 || strcmp(binary_pattern, "01100") == 0 ||
-            strcmp(binary_pattern, "00110") == 0) {
-      current_node = 'N'; // Normal line
-  } else {
-      current_node = 'N'; // Error or unknown
+void robot_t::printNodeStack()
+{
+  Serial.print("Node Stack: ");
+  for (char node : node_stack) {
+    Serial.print(node);
+    Serial.print(" ");
   }
-  return current_node;
+  Serial.println();
 }

@@ -33,7 +33,7 @@
 #include "config.h"
 #include "robot.h"
 
-#define DEBUG
+//#define DEBUG
 //#define Raspberry 
 #define Arduino 
 

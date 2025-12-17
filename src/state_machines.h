@@ -28,7 +28,7 @@ typedef enum {
   REVERSE,    
   SMALL_FORWARD, 
   FORWARD_MAP,
-  END      
+  END    
 } StateNamesMap;
 
 // Solving state machine state names
