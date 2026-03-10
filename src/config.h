@@ -2,8 +2,8 @@
 #define RESET_BUTTON 27
 
 
-#define ENC1_A 4
-#define ENC1_B 5
+#define ENC1_A 2
+#define ENC1_B 3
 
 #define ENC2_A 1
 #define ENC2_B 0
@@ -30,6 +30,10 @@
 #define U_TURN_TIME 400
 #define RIGHT_TURN_TIME 400
 #define LEFT_TURN_TIME 400
+
+
+#define TICKS_90DEG    4994   // ticks para uma curva de 90° (CALIBRAR)
+#define TICKS_SMALL_FWD 763   // ticks para small_forward (~3 cm) (CALIBRAR)
 
 #define NOMINAL_SPEED  FOLLOW_SPEED + 30//0-255 directly to motors PWM
 

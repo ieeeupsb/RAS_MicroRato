@@ -258,43 +258,46 @@ void robot_t::stop()
 
 void robot_t::right_turn()
 {
-  static unsigned long start_time = 0;
-  start_time = millis();
-  PWM_1 = nominal_speed;  // Left motor forward
-  PWM_2 = -nominal_speed;              // Right motor stopped
-  robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
-  robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
-  delay(RIGHT_TURN_TIME);
+  // Roda no próprio eixo para a direita até atingir TICKS_90DEG ticks.
+  // O encoder esquerdo avança positivamente; usa abs() para ser independente
+  // do sinal caso a montagem esteja invertida.
+  reset_encoders();
+  PWM_1 =  nominal_speed;   // motor esquerdo para a frente
+  PWM_2 = -nominal_speed;   // motor direito para trás
+  setMotorPWM(PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+  setMotorPWM(PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
 
+  while (abs(enc_left) < TICKS_90DEG) {
+    delayMicroseconds(100);
+  }
 }
 
 
 void robot_t::left_turn()
 {
-  static unsigned long start_time = 0;
-  start_time = millis();
-  PWM_1 = -nominal_speed;              // Left motor stopped
-  PWM_2 = nominal_speed;  // Right motor forward
-  robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
-  robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
-  delay(LEFT_TURN_TIME);
+  reset_encoders();
+  PWM_1 = -nominal_speed;   // motor esquerdo para trás
+  PWM_2 =  nominal_speed;   // motor direito para a frente
+  setMotorPWM(PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+  setMotorPWM(PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
+
+  while (abs(enc_right) < TICKS_90DEG) {
+    delayMicroseconds(100);
+  }
 }
 
 void robot_t::u_turn()
 {
-  char node = ' ';
-  static unsigned long start_time = 0;
-  start_time = millis();
-  PWM_1 = nominal_speed;   // Left motor forward
-  PWM_2 = -nominal_speed;  // Right motor backward
-  robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
-  robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
-  delay(U_TURN_TIME);
-  // while((millis() - start_time < U_TURN_TIME) && (node != 'N')) {
-  //   robot.IRLine.readIRSensors();
-  //   node = robot.IRLine.detectNode();
-  // }
-  
+  // 180° = 2× os ticks de 90°
+  reset_encoders();
+  PWM_1 =  nominal_speed;
+  PWM_2 = -nominal_speed;
+  setMotorPWM(PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+  setMotorPWM(PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
+
+  while (abs(enc_left) < TICKS_90DEG * 2) {
+    delayMicroseconds(100);
+  }
 }
 
 void robot_t::reverse()
@@ -315,13 +318,34 @@ void robot_t::forward()
 
 void robot_t::small_forward()
 {
-  int start_time = millis();
+  // Avança uma distância curta e fixa (TICKS_SMALL_FWD ticks no encoder médio)
+  // para centrar o robot sobre o nó antes de virar.
+  reset_encoders();
   PWM_1 = nominal_speed;
   PWM_2 = nominal_speed;
-  robot.setMotorPWM(robot.PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
-  robot.setMotorPWM(robot.PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
-  delay(SMALL_FWD_TIME);
-  
+  setMotorPWM(PWM_1, MOTOR1A_PIN, MOTOR1B_PIN);
+  setMotorPWM(PWM_2, MOTOR2A_PIN, MOTOR2B_PIN);
+
+  while (get_avg_encoder_ticks() < TICKS_SMALL_FWD) {
+    delayMicroseconds(100);
+  }
+}
+
+void robot_t::reset_encoders()
+{
+  noInterrupts();
+  enc_left  = 0;
+  enc_right = 0;
+  interrupts();
+}
+
+long robot_t::get_avg_encoder_ticks()
+{
+  noInterrupts();
+  long l = enc_left;
+  long r = enc_right;
+  interrupts();
+  return (abs(l) + abs(r)) / 2;
 }
 
 std::vector<char> robot_t::solveNodeStack()
